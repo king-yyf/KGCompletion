@@ -202,7 +202,7 @@ public:
     {
         int nbatches = 100, nepoch = 1000;
         size_t batchsize = head_vec.size() / nbatches;
-        nthreads = 20
+        nthreads = 20;
         //开始并行化执行
 #pragma omp parallel for firstprivate(ok)
         for(int t = 0; t < nthreads; t++)
@@ -214,7 +214,7 @@ public:
             {
                 start = time(NULL);
                 loss_value = 0;
-                private_res
+                private_res = 0;
                 for(int batch = 0; batch < nbatches; batch++)
                 {
 //                    relation_tmp = relation_vec;
@@ -222,7 +222,7 @@ public:
                     for(int k = 0; k < batchsize; k++)
                     {
                         int i = utils.rand_r_max((int)head_vec.size(), &seed);
-                        int j = utils.rand_max(entity_num, &seed);
+                        int j = utils.rand_r_max(entity_num, &seed);
                         double pr = 1000 * right_num[rel_vec[i]] / (right_num[rel_vec[i]] + left_num[rel_vec[i]]);
                         if(std::rand() % 1000 < pr)
                         {
@@ -308,6 +308,7 @@ public:
                 entity_vec[i][j] = utils.randn(0, 1.0/dim, -6/sqrt(dim), 6/sqrt(dim));
             utils.norm(entity_vec[i]);
         }
+        printf("KGCompletion train running...\n");
         bfgs();
     }
     
@@ -496,6 +497,8 @@ public:
             return;
         }
         
+        printf("KGCompletion test running...\n");
+        
         int sum_rank = 0, sum_rank_f = 0;
         int n_hit = 0, n_hit_f = 0;
         
@@ -576,7 +579,7 @@ private:
     double margin;
     double rate, belta;
     double loss_value;
-    int nthreads
+    int nthreads;
     string rel2vec, entity2vec;
 };
 #endif /* kgcrl_hpp */
