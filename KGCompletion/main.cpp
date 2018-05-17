@@ -8,7 +8,17 @@
 
 #include <iostream>
 #include <string>
+#include <cstring>
 #include "kgcrl.hpp"
+
+void help()
+{
+	printf("error argument\n");
+        printf("-------------help-------------\n");
+        printf("Usage:  1: train: ./kgc train\n");
+        printf("        2: test: ./kgc test\n");
+
+}
 
 int main(int argc, const char * argv[]) {
     srand((unsigned) time(NULL));
@@ -21,8 +31,32 @@ int main(int argc, const char * argv[]) {
     KGCRL *pkgc = new KGCRL(version,dim);
 //    pkgc->init();
 //    pkgc->run_train(dim, rate, margin, method);
-    
-    pkgc->pre_test();
-    pkgc->run_test();
+    if(argc < 2)
+    {
+//	printf("not enough argument\n");
+//	printf("-------------help-------------\n");
+//	printf("Usage:  1: train: ./kgc train\n");
+//	printf("        2: test: ./kgc test\n");
+	help();
+	return 0;
+    }	
+    else{
+	printf("%s, %s\n", argv[0], argv[1]);
+	if(strcmp(argv[1], "train") == 0)
+	{
+	    pkgc->init();
+	    pkgc->run_train(dim, rate, margin);
+	}
+	else if(strcmp(argv[1], "test") == 0)
+	{
+	    pkgc->pre_test();
+	    pkgc->run_test();
+	}
+	else
+	{
+	    help();
+	}
+	
+    }
     return 0;
 }

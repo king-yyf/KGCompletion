@@ -204,7 +204,7 @@ public:
         size_t batchsize = head_vec.size() / nbatches;
         nthreads = 20;
         //开始并行化执行
-#pragma omp parallel for firstprivate(ok)
+#pragma omp parallel for firstprivate(tuples)
         for(int t = 0; t < nthreads; t++)
         {
             time_t start, stop;
@@ -230,7 +230,7 @@ public:
                             {
                                 j = utils.rand_r_max(entity_num, &seed);
                             }
-                            train_kb(head_vec[i], tail_vec[i], rel_vec[i], head_vec[i], j, rel_vec[i]， private_res);
+                            train_kb(head_vec[i], tail_vec[i], rel_vec[i], head_vec[i], j, rel_vec[i], private_res);
                         }
                         else
                         {
