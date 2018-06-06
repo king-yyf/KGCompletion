@@ -44,7 +44,7 @@ int main(int argc, const char * argv[]) {
 	printf("%s, %s\n", argv[0], argv[1]);
 	if(strcmp(argv[1], "train") == 0)
 	{
-	    pkgc->init();
+	    pkgc->init();   
 	    pkgc->run_train(dim, rate, margin);
 	}
 	else if(strcmp(argv[1], "test") == 0)

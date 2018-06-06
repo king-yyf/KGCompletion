@@ -61,6 +61,7 @@ public:
     
     bool init()
     {
+	printf("train init begin !\n");
         // 处理实体和id的映射
         FILE * fp = fopen(ENTITY_FILE, "r");
         char buff[1000], left[100], right[100];
@@ -74,7 +75,8 @@ public:
             entity_num++;
         }
         fclose(fp);
-        
+	printf("read entity data ok !\n");
+	
         // 处理关系和id的映射
         fp = fopen(RELATION_FILE, "r");
         while (fscanf(fp, "%s %d", buff, &id) == 2)
@@ -85,6 +87,7 @@ public:
             relation_num++;
         }
         fclose(fp);
+	printf("read relation data ok !\n");
         
         // 读入训练文件（h，r，t）三元组
         fp = fopen(TRAIN_FILE, "r");
@@ -93,6 +96,8 @@ public:
             head = left;
             tail = right;
             temp = buff;
+	    lcandi_set[temp].emplace_back(head);
+	    rcandi_set[temp].emplace_back(tail);
             if(!entity_trie.exists(head))
             {
                 printf("can not found entity %s\n", left);
@@ -114,6 +119,16 @@ public:
             right_entity[val3][val2]++;
             append(val1, val3, val2);
         }
+        
+        for (int i = 0;i < relation_num; i++)
+	{
+	    string tmp = id2relation[i];
+	    sort(lcandi_set[tmp].begin(), lcandi_set[tmp].end());
+	    sort(rcandi_set[tmp].begin(), rcandi_set[tmp].end());
+	    lcandi_set[tmp].erase(unique(lcandi_set[tmp].begin(), lcandi_set[tmp].end()),  lcandi_set[tmp].end());	
+	    rcandi_set[tmp].erase(unique(rcandi_set[tmp].begin(), rcandi_set[tmp].end()), rcandi_set[tmp].end());
+	}
+	
         for(int i = 0; i < relation_num; i++)
         {
             double sum1 = 0, sum2 = 0;
@@ -135,6 +150,7 @@ public:
             right_num[i] = sum2 / sum1;
         }
 //        cout << "relation"
+	printf("train init finished\n");
         return true;
     }
     
@@ -200,19 +216,21 @@ public:
     //bfgs 拟牛顿优化算法
     bool bfgs()
     {
+	time_t start, stop;
         int nbatches = 100, nepoch = 1000;
         size_t batchsize = head_vec.size() / nbatches;
         nthreads = 20;
+	int p_epoch = nepoch / nthreads;
         //开始并行化执行
+	start = time(NULL);
 #pragma omp parallel for firstprivate(tuples)
         for(int t = 0; t < nthreads; t++)
         {
-            time_t start, stop;
             double private_res;
+	    int alpha = 5;
             unsigned int seed = (unsigned) time(NULL) + t;
-            for(int epoch = 0; epoch < nepoch/nthreads; epoch++)
+            for(int epoch = 0; epoch < p_epoch; epoch++)
             {
-                start = time(NULL);
                 loss_value = 0;
                 private_res = 0;
                 for(int batch = 0; batch < nbatches; batch++)
@@ -223,9 +241,18 @@ public:
                     {
                         int i = utils.rand_r_max((int)head_vec.size(), &seed);
                         int j = utils.rand_r_max(entity_num, &seed);
-                        double pr = 1000 * right_num[rel_vec[i]] / (right_num[rel_vec[i]] + left_num[rel_vec[i]]);
-                        if(std::rand() % 1000 < pr)
+			
+			double pr = 1000 * right_num[rel_vec[i]] / (right_num[rel_vec[i]] + left_num[rel_vec[i]]);
+			if(std::rand() % 1000 < pr)
                         {
+			    if(rcandi_set[id2relation[i]].size() > 0 && std::rand() % 10 < alpha)
+			    {
+				while (tuples[std::make_pair(head_vec[i], head_vec[i])].count(j) > 0)
+				{
+				    int idx = std::rand() % rcandi_set[id2relation[i]].size();
+				    entity_trie.value_at(rcandi_set[id2relation[i]][idx], j);
+				} 
+			    }
                             while (tuples[std::make_pair(head_vec[i], head_vec[i])].count(j) > 0)
                             {
                                 j = utils.rand_r_max(entity_num, &seed);
@@ -234,12 +261,21 @@ public:
                         }
                         else
                         {
+			     if(lcandi_set[id2relation[i]].size() > 0 && std::rand() % 10 < alpha)
+			     {
+				  while (tuples[std::make_pair(head_vec[i], head_vec[i])].count(j) > 0)
+				  {
+				      int idx = std::rand() % lcandi_set[id2relation[i]].size();
+				      entity_trie.value_at(lcandi_set[id2relation[i]][idx], j);
+				  } 
+			      }
                             while (tuples[std::make_pair(j, head_vec[i])].count(tail_vec[i]) > 0)
                             {
                                 j = utils.rand_max(entity_num);
                             }
                             train_kb(head_vec[i], tail_vec[i], rel_vec[i], j, tail_vec[i], rel_vec[i], private_res);
                         }
+                       
                         utils.norm(relation_tmp[rel_vec[i]]);
                         utils.norm(entity_tmp[head_vec[i]]);
                         utils.norm(entity_tmp[tail_vec[i]]);
@@ -248,10 +284,11 @@ public:
 //                    relation_vec = relation_tmp;
 //                    entity_vec = entity_tmp;
                 }
-                stop = time(NULL);
-                printf("epoch: %d %lf\n", epoch, loss_value);
+                printf("thread id:%d, epoch;%d, res: %f\n", omp_get_thread_num(), epoch, private_res);
             }
         }
+        stop = time(NULL);
+	printf("Train finished !, use time %ld\n", (stop - start));
        
         
         FILE * fp_rel = fopen(rel2vec.c_str(), "w");
@@ -562,6 +599,7 @@ private:
     trie<int> entity_trie;
     //关系和关系id的映射
     trie<int> relation_trie;
+    map<string, vector<string> > lcandi_set, rcandi_set;
     map<int, string> id2entity;
     map<int, string> id2relation;
     map<int, map<int,int> > left_entity, right_entity;
